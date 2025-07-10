@@ -9,12 +9,7 @@ import {
   AlertCircle,
   CheckCircle,
   Phone,
-  MessageSquare,
-  Clock,
-  Play,
-  Pause,
-  Square,
-  RotateCcw
+  MessageSquare
 } from 'lucide-react';
 import { Patient, HealthRecord, BloodPressureData, SugarLevelData, BabyMovementData } from '../types';
 
@@ -26,12 +21,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddRecord, setShowAddRecord] = useState<string | null>(null);
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([]);
-  
-  // Stopwatch state for baby movement
-  const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
-  const [stopwatchTime, setStopwatchTime] = useState(0);
-  const [movementCount, setMovementCount] = useState(0);
-  const [showMovementStopwatch, setShowMovementStopwatch] = useState(false);
 
   // Form states
   const [bloodPressureForm, setBloodPressureForm] = useState({
@@ -47,16 +36,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
     notes: ''
   });
 
-  // Stopwatch effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isStopwatchRunning) {
-      interval = setInterval(() => {
-        setStopwatchTime(time => time + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isStopwatchRunning]);
+  const [babyMovementForm, setBabyMovementForm] = useState({
+    count: '',
+    duration: '',
+    notes: ''
+  });
 
   // Load health records from localStorage
   useEffect(() => {
@@ -70,105 +54,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
   const saveHealthRecords = (records: HealthRecord[]) => {
     localStorage.setItem(`healthRecords_${patient.id}`, JSON.stringify(records));
     setHealthRecords(records);
-  };
-
-  // Helper functions for reading classifications
-  const classifyBloodPressure = (systolic: number, diastolic: number) => {
-    if (systolic < 90 || diastolic < 60) {
-      return { label: 'Low', color: 'text-blue-600 bg-blue-50', icon: '↓' };
-    } else if (systolic >= 140 || diastolic >= 90) {
-      return { label: 'High', color: 'text-red-600 bg-red-50', icon: '↑' };
-    } else if (systolic >= 120 || diastolic >= 80) {
-      return { label: 'Elevated', color: 'text-yellow-600 bg-yellow-50', icon: '⚠' };
-    } else {
-      return { label: 'Normal', color: 'text-green-600 bg-green-50', icon: '✓' };
-    }
-  };
-
-  const classifySugarLevel = (level: number, testType: string) => {
-    let normalRange: { min: number; max: number };
-    
-    switch (testType) {
-      case 'fasting':
-        normalRange = { min: 70, max: 100 };
-        break;
-      case 'post_meal':
-        normalRange = { min: 70, max: 140 };
-        break;
-      default: // random
-        normalRange = { min: 70, max: 140 };
-    }
-
-    if (level < normalRange.min) {
-      return { label: 'Low', color: 'text-blue-600 bg-blue-50', icon: '↓' };
-    } else if (level > normalRange.max) {
-      return { label: 'High', color: 'text-red-600 bg-red-50', icon: '↑' };
-    } else {
-      return { label: 'Normal', color: 'text-green-600 bg-green-50', icon: '✓' };
-    }
-  };
-
-  const classifyBabyMovement = (count: number, duration: number) => {
-    // Normal baby movement: 10+ movements in 2 hours (120 minutes)
-    const movementsPerHour = (count / duration) * 60;
-    
-    if (movementsPerHour < 3) {
-      return { label: 'Low Activity', color: 'text-yellow-600 bg-yellow-50', icon: '⚠' };
-    } else if (movementsPerHour >= 5) {
-      return { label: 'Active', color: 'text-green-600 bg-green-50', icon: '✓' };
-    } else {
-      return { label: 'Normal', color: 'text-green-600 bg-green-50', icon: '✓' };
-    }
-  };
-
-  // Format stopwatch time
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Stopwatch controls
-  const startStopwatch = () => {
-    setIsStopwatchRunning(true);
-  };
-
-  const pauseStopwatch = () => {
-    setIsStopwatchRunning(false);
-  };
-
-  const resetStopwatch = () => {
-    setIsStopwatchRunning(false);
-    setStopwatchTime(0);
-    setMovementCount(0);
-  };
-
-  const addMovement = () => {
-    setMovementCount(count => count + 1);
-  };
-
-  const finishMovementTracking = () => {
-    if (stopwatchTime > 0) {
-      const newRecord: HealthRecord = {
-        id: Date.now().toString(),
-        patientId: patient.id,
-        date: new Date().toISOString(),
-        type: 'baby_movement',
-        data: {
-          count: movementCount,
-          duration: stopwatchTime, // in seconds
-          notes: `Tracked for ${formatTime(stopwatchTime)}`
-        } as BabyMovementData
-      };
-
-      const updatedRecords = [newRecord, ...healthRecords];
-      saveHealthRecords(updatedRecords);
-      
-      // Reset stopwatch
-      resetStopwatch();
-      setShowMovementStopwatch(false);
-      setShowAddRecord(null);
-    }
   };
 
   const handleAddBloodPressure = (e: React.FormEvent) => {
@@ -213,6 +98,28 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
     saveHealthRecords(updatedRecords);
     
     setSugarLevelForm({ level: '', testType: 'random', notes: '' });
+    setShowAddRecord(null);
+  };
+
+  const handleAddBabyMovement = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const newRecord: HealthRecord = {
+      id: Date.now().toString(),
+      patientId: patient.id,
+      date: new Date().toISOString(),
+      type: 'baby_movement',
+      data: {
+        count: parseInt(babyMovementForm.count),
+        duration: parseInt(babyMovementForm.duration),
+        notes: babyMovementForm.notes
+      } as BabyMovementData
+    };
+
+    const updatedRecords = [newRecord, ...healthRecords];
+    saveHealthRecords(updatedRecords);
+    
+    setBabyMovementForm({ count: '', duration: '', notes: '' });
     setShowAddRecord(null);
   };
 
@@ -289,10 +196,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
         </button>
 
         <button
-          onClick={() => {
-            setShowAddRecord('baby_movement');
-            setShowMovementStopwatch(true);
-          }}
+          onClick={() => setShowAddRecord('baby_movement')}
           className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow text-left"
         >
           <div className="flex items-center justify-between mb-3">
@@ -323,20 +227,16 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
             {healthRecords.slice(0, 3).map((record) => {
               const date = new Date(record.date).toLocaleDateString();
               let content = '';
-              let classification = null;
               
               if (record.type === 'blood_pressure') {
                 const data = record.data as BloodPressureData;
                 content = `${data.systolic}/${data.diastolic} mmHg`;
-                classification = classifyBloodPressure(data.systolic, data.diastolic);
               } else if (record.type === 'sugar_level') {
                 const data = record.data as SugarLevelData;
                 content = `${data.level} mg/dL (${data.testType})`;
-                classification = classifySugarLevel(data.level, data.testType);
               } else if (record.type === 'baby_movement') {
                 const data = record.data as BabyMovementData;
-                content = `${data.count} movements in ${formatTime(data.duration)}`;
-                classification = classifyBabyMovement(data.count, data.duration / 60); // convert to minutes
+                content = `${data.count} movements in ${data.duration} minutes`;
               }
               
               return (
@@ -353,14 +253,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
                       <p className="text-xs text-gray-600">{content}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    {classification && (
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${classification.color}`}>
-                        {classification.icon} {classification.label}
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-500">{date}</span>
-                  </div>
+                  <span className="text-xs text-gray-500">{date}</span>
                 </div>
               );
             })}
@@ -415,10 +308,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
               <span>Sugar Level</span>
             </button>
             <button
-              onClick={() => {
-                setShowAddRecord('baby_movement');
-                setShowMovementStopwatch(true);
-              }}
+              onClick={() => setShowAddRecord('baby_movement')}
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm flex items-center space-x-2"
             >
               <Baby className="w-4 h-4" />
@@ -441,14 +331,12 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
               const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
               
               let content = '';
-              let classification = null;
               let icon = null;
               
               if (record.type === 'blood_pressure') {
                 const data = record.data as BloodPressureData;
                 content = `${data.systolic}/${data.diastolic} mmHg`;
                 if (data.heartRate) content += ` • HR: ${data.heartRate} bpm`;
-                classification = classifyBloodPressure(data.systolic, data.diastolic);
                 icon = <Heart className="w-5 h-5 text-red-500" />;
               } else if (record.type === 'sugar_level') {
                 const data = record.data as SugarLevelData;
@@ -456,12 +344,10 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
                 const testTypeLabel = data.testType === 'fasting' ? 'Fasting' : 
                                    data.testType === 'post_meal' ? 'Post-meal' : 'Random';
                 content += ` (${testTypeLabel})`;
-                classification = classifySugarLevel(data.level, data.testType);
                 icon = <Activity className="w-5 h-5 text-blue-500" />;
               } else if (record.type === 'baby_movement') {
                 const data = record.data as BabyMovementData;
-                content = `${data.count} movements in ${formatTime(data.duration)}`;
-                classification = classifyBabyMovement(data.count, data.duration / 60);
+                content = `${data.count} movements in ${data.duration} minutes`;
                 icon = <Baby className="w-5 h-5 text-green-500" />;
               }
               
@@ -471,16 +357,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
                     <div className="flex items-start space-x-3">
                       {icon}
                       <div>
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h4 className="font-medium text-gray-800 capitalize">
-                            {record.type.replace('_', ' ')}
-                          </h4>
-                          {classification && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${classification.color}`}>
-                              {classification.icon} {classification.label}
-                            </span>
-                          )}
-                        </div>
+                        <h4 className="font-medium text-gray-800 capitalize mb-1">
+                          {record.type.replace('_', ' ')}
+                        </h4>
                         <p className="text-sm text-gray-600 mb-1">{content}</p>
                         <p className="text-xs text-gray-500">{formattedDate} at {formattedTime}</p>
                         {record.data.notes && (
@@ -711,97 +590,65 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ patient }) => {
           </div>
         )}
 
-        {/* Baby Movement Stopwatch Modal */}
-        {showMovementStopwatch && (
+        {showAddRecord === 'baby_movement' && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold mb-6 text-center">Baby Movement Tracker</h3>
-              
-              {/* Stopwatch Display */}
-              <div className="text-center mb-6">
-                <div className="text-4xl font-mono font-bold text-gray-800 mb-2">
-                  {formatTime(stopwatchTime)}
+              <h3 className="text-lg font-semibold mb-4">Add Baby Movement Record</h3>
+              <form onSubmit={handleAddBabyMovement} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Number of Movements
+                  </label>
+                  <input
+                    type="number"
+                    value={babyMovementForm.count}
+                    onChange={(e) => setBabyMovementForm({...babyMovementForm, count: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="10"
+                    required
+                  />
                 </div>
-                <p className="text-sm text-gray-600">Tracking time</p>
-              </div>
-
-              {/* Movement Counter */}
-              <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-green-600 mb-2">
-                  {movementCount}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Duration (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    value={babyMovementForm.duration}
+                    onChange={(e) => setBabyMovementForm({...babyMovementForm, duration: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="60"
+                    required
+                  />
                 </div>
-                <p className="text-sm text-gray-600">Movements counted</p>
-              </div>
-
-              {/* Controls */}
-              <div className="space-y-4">
-                {/* Stopwatch Controls */}
-                <div className="flex justify-center space-x-3">
-                  {!isStopwatchRunning ? (
-                    <button
-                      onClick={startStopwatch}
-                      className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
-                    >
-                      <Play className="w-4 h-4" />
-                      <span>Start</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={pauseStopwatch}
-                      className="flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg"
-                    >
-                      <Pause className="w-4 h-4" />
-                      <span>Pause</span>
-                    </button>
-                  )}
-                  
-                  <button
-                    onClick={resetStopwatch}
-                    className="flex items-center space-x-2 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>Reset</span>
-                  </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes - Optional
+                  </label>
+                  <textarea
+                    value={babyMovementForm.notes}
+                    onChange={(e) => setBabyMovementForm({...babyMovementForm, notes: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows={2}
+                    placeholder="Any additional notes..."
+                  />
                 </div>
-
-                {/* Movement Button */}
-                <button
-                  onClick={addMovement}
-                  disabled={!isStopwatchRunning && stopwatchTime === 0}
-                  className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white py-4 rounded-lg text-lg font-medium transition-colors"
-                >
-                  👶 Feel a Movement? Tap Here!
-                </button>
-
-                {/* Action Buttons */}
                 <div className="flex space-x-3">
                   <button
-                    onClick={() => {
-                      resetStopwatch();
-                      setShowMovementStopwatch(false);
-                      setShowAddRecord(null);
-                    }}
+                    type="button"
+                    onClick={() => setShowAddRecord(null)}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={finishMovementTracking}
-                    disabled={stopwatchTime === 0}
-                    className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg"
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg"
                   >
-                    Save Session
+                    Save Record
                   </button>
                 </div>
-              </div>
-
-              {/* Instructions */}
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-xs text-blue-700">
-                  <strong>Instructions:</strong> Start the timer and tap the movement button each time you feel your baby move. 
-                  Normal activity is 10+ movements in 2 hours.
-                </p>
-              </div>
+              </form>
             </div>
           </div>
         )}
